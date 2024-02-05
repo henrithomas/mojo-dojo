@@ -33,13 +33,13 @@ fn dot(t1: Tensor[type], t2: Tensor[type]) -> Float32:
     fn compute_mul[simd_width: Int](idx: Int):
         var testsimd = SIMD[type, simd_width](0)
         testsimd = t1.simd_load[simd_width](idx)
-        temp_vec.simd_store[simd_width](idx, t1.simd_load[simd_width](idx) * t2.simd_load[simd_width](idx))
+        temp_vec.data().simd_store[simd_width](idx, t1.simd_load[simd_width](idx).__mul__(t2.simd_load[simd_width](idx)))
     
     vectorize[simdwidth, compute_mul](t1.shape()[1])
 
     print(str(temp_vec))
 
-    @unroll(5)
+    @unroll(100)
     for i in range(temp_vec.shape()[1]):
         vec_dot += temp_vec[i]
     print(vec_dot)
@@ -49,22 +49,29 @@ fn main() raises:
     let height = 3
     let width = 2
     let channels = 3
+    let length = 1000
     let tensor_file = Path("./tensor_test")
     print("simd width:", simdwidth)
-    # Create the tensor of dimensions height, width, channels
-    # and fill with random values.
+ 
+    let vals = rand[DType.float32](length)
+    let vals2 = rand[DType.float32](length)
 
-    # Declare the grayscale image.
     let spec = TensorSpec(DType.float32, height, width)
     let spec2 = TensorSpec(DType.float32, width, height)
     let tshape = TensorShape(2,3)
     var tensor1 = Tensor[DType.float32](spec)
     var tensor2 = Tensor[DType.float32](spec2)
     var tensor_mul = Tensor[DType.float32](TensorSpec(DType.float32, height, height))
-    var vector1 = Tensor[DType.float32](TensorSpec(DType.float32, 1, 3))
-    var vector2 = Tensor[DType.float32](TensorSpec(DType.float32, 1, 3))
+    var vector1 = Tensor[DType.float32](TensorSpec(DType.float32, 1, length))
+    var vector2 = Tensor[DType.float32](TensorSpec(DType.float32, 1, length))
 
-    # Perform the RGB to grayscale transform.
+    for i in range(length):
+        vector1[i] = vals[i]
+        vector2[i] = vals2[i]
+
+    vector1 = vector1.__radd__(1)
+    vector2 = vector2.__radd__(1)
+
     for y in range(height):
         for x in range(width):
             tensor1[Index(y,x)] = 1
@@ -77,14 +84,6 @@ fn main() raises:
     tensor2[Index(1,1)] = 4
     tensor2[Index(0,1)] = 3
     tensor2[Index(1,2)] = 5
-
-    vector1[0] = 1
-    vector1[1] = 2
-    vector1[2] = 3
-
-    vector2[0] = 2
-    vector2[1] = 3
-    vector2[2] = 4
 
     print(str(tensor1))
     print(str(tensor2))
