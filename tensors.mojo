@@ -13,7 +13,8 @@ def matmul_python(C, A, B):
                 C[m, n] += A[m, k] * B[k, n]
 """
 # using mojo docs tutorial: https://docs.modular.com/mojo/notebooks/Matmul.html#python-implementation
-fn matmul(t1: Tensor[type], t2: Tensor[type]) -> Tensor[type]:
+
+fn matmul_0(t1: Tensor[type], t2: Tensor[type]) -> Tensor[type]:
     print(str(t1.shape()))
     print(str(t2.shape()))
     var t_mul: Tensor[type] = Tensor[type](TensorShape(t1.shape()[0],t2.shape()[1]))
@@ -25,31 +26,63 @@ fn matmul(t1: Tensor[type], t2: Tensor[type]) -> Tensor[type]:
                 
     return t_mul        
 
+fn matmul_vectorized(t1: Tensor[type], t2: Tensor[type]) -> Tensor[type]:
+    var t_mul: Tensor[type] = Tensor[type](TensorShape(t1.shape()[0],t2.shape()[1]))
+
+    for i in range(t_mul.shape()[0]):
+        for j in range(t1.shape()[1]):
+            @parameter
+            fn dot[simd_width: Int](k: Int):
+                t_mul.simd_store[simd_width](
+                    i * t_mul.shape()[1] + k, 
+                    t_mul.simd_load[simd_width](i * t_mul.shape()[1] + k) + t1[Index(i,j)] * t2.simd_load[simd_width](j * t_mul.shape()[1] + k)
+                )
+            vectorize[simdwidth, dot](t_mul.shape()[1])
+
+    return t_mul 
+
+fn matmul_parallelized(t1: Tensor[type], t2: Tensor[type]) -> Tensor[type]:
+    var t_mul: Tensor[type] = Tensor[type](TensorShape(t1.shape()[0],t2.shape()[1]))
+
+    @parameter
+    fn calc_row(i: Int):
+        for j in range(t1.shape()[1]):
+            @parameter
+            fn dot[simd_width: Int](k: Int):
+                t_mul.simd_store[simd_width](
+                    i * t_mul.shape()[1] + k, 
+                    t_mul.simd_load[simd_width](i * t_mul.shape()[1] + k) + t1[Index(i,j)] * t2.simd_load[simd_width](j * t_mul.shape()[1] + k)
+                )
+            vectorize[simdwidth, dot](t_mul.shape()[1])
+
+    parallelize[calc_row](t_mul.shape()[0], t_mul.shape()[0])
+
+    return t_mul 
+
+
 fn dot(t1: Tensor[type], t2: Tensor[type]) -> Float32:
     var vec_dot: Float32 = 0.0
     var temp_vec: Tensor[type] = Tensor[type](t1.shape())
+    var sum_vec: Tensor[type] = Tensor[type](simdwidth)
+    var sum_simd = SIMD[type, simdwidth](0.0)
 
     @parameter
     fn compute_mul[simd_width: Int](idx: Int):
-        var testsimd = SIMD[type, simd_width](0)
-        testsimd = t1.simd_load[simd_width](idx)
-        temp_vec.data().simd_store[simd_width](idx, t1.simd_load[simd_width](idx).__mul__(t2.simd_load[simd_width](idx)))
-    
+        temp_vec.simd_store[simd_width](idx, 
+            t1.simd_load[simd_width](idx) * t2.simd_load[simd_width](idx))
+
     vectorize[simdwidth, compute_mul](t1.shape()[1])
 
-    print(str(temp_vec))
-
-    @unroll(100)
     for i in range(temp_vec.shape()[1]):
         vec_dot += temp_vec[i]
-    print(vec_dot)
+
     return vec_dot
 
 fn main() raises:
-    let height = 3
-    let width = 2
+    let height = 150
+    let width = 125
     let channels = 3
-    let length = 1000
+    let length = 100
     let tensor_file = Path("./tensor_test")
     print("simd width:", simdwidth)
  
@@ -87,52 +120,10 @@ fn main() raises:
 
     print(str(tensor1))
     print(str(tensor2))
-    tensor_mul = matmul(tensor1, tensor2)
+    tensor_mul = matmul_parallelized(tensor1, tensor2)
     print(str(tensor_mul))
 
     print(str(vector1))
     print(str(vector2))
-    _ = dot(vector1, vector2)
-
-
-
-    # print(gray_scale_image.shape().__str__())
-
-
-    # try:
-    #     gray_scale_image.save(tensor_file)
-    # except e:
-    #     print("failed to save tensor:", e)
-    # finally:
-    #     print("done saving tensor")
-
-
-    # try:
-    #     tensor_load = tensor_load.load(tensor_file)
-    # except e:
-    #     print("failed to load tensor:", e)
-    # finally:
-    #     print("done loading tensor")
-
-    # print(tensor_load.shape().__str__())
-    # print(str(tensor_load))
-
-    # tensor_load = tensor_load + gray_scale_image
-    # var tensor_transpose = tensor_load.reshape(tshape)
-    # var tensor_mul = Tensor[type](TensorShape(tensor_load.shape()[0],tensor_transpose.shape()[1]))
-    # print(str(tensor_load))
-    # print(str(tensor_transpose))
-    # print(str(tensor_mul))
-    # print("file tensor shape: ", tensor_load.shape())
-    # print("tensore transpose shape: ", tensor_transpose.shape())
-
-    # for i in range(tensor_load.shape()[0]):
-    #     for j in range(tensor_transpose.shape()[1]):
-    #         var tload_row = Tensor[type](tensor_load.shape[1])
-    #         var ttrans_col = Tensor[type](tensor_transpose.shape[0])
-    #         for k in range(tensor_load.shape()[1]):
-    #             tload_row[]
-    #             # var str = "t(" + str(i) + ", " + str(j) + ")"
-    #             # print(str, tensor_load[i,j])
-
-
+    var vecdot = dot(vector1, vector2)
+    print(vecdot)
