@@ -1,0 +1,32 @@
+from tensor import Tensor, TensorSpec, TensorShape
+from algorithm import parallelize, vectorize
+from utils.index import Index
+from random import rand, randn
+from pathlib import path
+alias type = DType.float32
+
+fn main():
+    var img_height: Int = 25
+    var img_width: Int = 25
+    var kernel_size: Int = 3
+
+    var img_spec = TensorSpec(type, img_height, img_width)
+    var kernel_spec = TensorSpec(type, kernel_size, kernel_size)
+
+    var img: Tensor[type] = randn[type](img_spec, 0, 1)
+    var img_conv: Tensor[type] = Tensor[type](img_spec)
+
+    var kernel: Tensor[type] = Tensor[type](kernel_spec)
+    kernel[Index(0,0)] = 0.05
+    kernel[Index(0,1)] = 0.11
+    kernel[Index(0,2)] = 0.05
+    kernel[Index(1,0)] = 0.11
+    kernel[Index(1,1)] = 0.25
+    kernel[Index(1,2)] = 0.11
+    kernel[Index(2,0)] = 0.05
+    kernel[Index(2,1)] = 0.11
+    kernel[Index(2,2)] = 0.05
+
+    print("convolutions")
+    print(kernel)
+    print(img)
