@@ -37,7 +37,7 @@ fn matmul_vectorized(t1: Tensor[type], t2: Tensor[type]) -> Tensor[type]:
                     i * t_mul.shape()[1] + k, 
                     t_mul.simd_load[simd_width](i * t_mul.shape()[1] + k) + t1[Index(i,j)] * t2.simd_load[simd_width](j * t_mul.shape()[1] + k)
                 )
-            vectorize[simdwidth, dot](t_mul.shape()[1])
+            vectorize[dot, simdwidth](t_mul.shape()[1])
 
     return t_mul 
 
@@ -53,7 +53,7 @@ fn matmul_parallelized(t1: Tensor[type], t2: Tensor[type]) -> Tensor[type]:
                     i * t_mul.shape()[1] + k, 
                     t_mul.simd_load[simd_width](i * t_mul.shape()[1] + k) + t1[Index(i,j)] * t2.simd_load[simd_width](j * t_mul.shape()[1] + k)
                 )
-            vectorize[simdwidth, dot](t_mul.shape()[1])
+            vectorize[dot, simdwidth](t_mul.shape()[1])
 
     parallelize[calc_row](t_mul.shape()[0], t_mul.shape()[0])
 
@@ -71,7 +71,7 @@ fn dot(t1: Tensor[type], t2: Tensor[type]) -> Float32:
         temp_vec.simd_store[simd_width](idx, 
             t1.simd_load[simd_width](idx) * t2.simd_load[simd_width](idx))
 
-    vectorize[simdwidth, compute_mul](t1.shape()[1])
+    vectorize[compute_mul, simdwidth](t1.shape()[1])
 
     for i in range(temp_vec.shape()[1]):
         vec_dot += temp_vec[i]
@@ -79,19 +79,19 @@ fn dot(t1: Tensor[type], t2: Tensor[type]) -> Float32:
     return vec_dot
 
 fn main() raises:
-    let height = 150
-    let width = 125
-    let channels = 3
-    let length = 100
-    let tensor_file = Path("./tensor_test")
+    var height = 150
+    var width = 125
+    var channels = 3
+    var length = 100
+    var tensor_file = path.Path("./tensor_test")
     print("simd width:", simdwidth)
  
-    let vals = rand[DType.float32](length)
-    let vals2 = rand[DType.float32](length)
+    var vals = rand[DType.float32](length)
+    var vals2 = rand[DType.float32](length)
 
-    let spec = TensorSpec(DType.float32, height, width)
-    let spec2 = TensorSpec(DType.float32, width, height)
-    let tshape = TensorShape(2,3)
+    var spec = TensorSpec(DType.float32, height, width)
+    var spec2 = TensorSpec(DType.float32, width, height)
+    var tshape = TensorShape(2,3)
     var tensor1 = Tensor[DType.float32](spec)
     var tensor2 = Tensor[DType.float32](spec2)
     var tensor_mul = Tensor[DType.float32](TensorSpec(DType.float32, height, height))

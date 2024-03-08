@@ -33,8 +33,8 @@ fn mandelbrot_kernel(borrowed c: ComplexFloat64) -> Int:
     return MAX_ITERS
 
 fn mandelbrot_kernel_SIMD[simd_width: Int](c: ComplexSIMD[float_type, simd_width]) -> SIMD[float_type, simd_width]:
-    let cx = c.re
-    let cy = c.im
+    var cx = c.re
+    var cy = c.im
 
     var x = SIMD[float_type, simd_width] (0)
     var y = SIMD[float_type, simd_width] (0)
@@ -56,8 +56,8 @@ fn mandelbrot_kernel_SIMD[simd_width: Int](c: ComplexSIMD[float_type, simd_width
 fn compute_mandelbrot() -> Tensor[float_type]:
     var t = Tensor[float_type] (height, width)
 
-    let dx = (max_x - min_x) / width
-    let dy = (max_y - min_y) / height
+    var dx = (max_x - min_x) / width
+    var dy = (max_y - min_y) / height
 
     var y = min_y
     for row in range(height):
@@ -95,24 +95,24 @@ def show_plot(tensor: Tensor[float_type]):
     plt.show()
 
 fn compute_mandelbrot_vectorized() -> Tensor[float_type]:
-    let t = Tensor[float_type] (height, width)
+    var t = Tensor[float_type] (height, width)
 
     @parameter
     fn worker(row: Int):
-        let scale_x = (max_x - min_x) / width
-        let scale_y = (max_y - min_y) / height
+        var scale_x = (max_x - min_x) / width
+        var scale_y = (max_y - min_y) / height
 
         @parameter
         fn compute_vector[simd_width: Int] (col: Int):
-            let cx = min_x + (col + iota[float_type, simd_width] ()) * scale_x
-            let cy = min_y + row * scale_y
-            let c = ComplexSIMD[float_type, simd_width] (cx, cy)
+            var cx = min_x + (col + iota[float_type, simd_width] ()) * scale_x
+            var cy = min_y + row * scale_y
+            var c = ComplexSIMD[float_type, simd_width] (cx, cy)
 
             t.data().simd_store[simd_width](
                 row * width + col, mandelbrot_kernel_SIMD[simd_width] (c)
             )
 
-        vectorize[simd_width, compute_vector](width)
+        vectorize[compute_vector, simd_width](width)
 
     @parameter
     fn bench[simd_width: Int]():
@@ -125,12 +125,12 @@ fn compute_mandelbrot_vectorized() -> Tensor[float_type]:
 
     bench_parallel[simd_width]()
 
-    # let vectorized = benchmark.run[bench[simd_width]](
+    # var vectorized = benchmark.run[bench[simd_width]](
     #     max_iters=1000,
     #     max_runtime_secs=0.5
     # ).mean(benchmark.Unit.ms)
 
-    # let parallelized = benchmark.run[bench_parallel[simd_width]](
+    # var parallelized = benchmark.run[bench_parallel[simd_width]](
     #     max_iters=1000,
     #     max_runtime_secs=0.5
     # ).mean(benchmark.Unit.ms)

@@ -9,12 +9,12 @@ fn add(x: Int = 1, y: Int = 1) -> Int:
     return x + y
 
 fn main():
-    let name = "henri"
+    var name = "henri"
     print("hello, world!")
-    let test = greet_strong(name)
+    var test = greet_strong(name)
     print(test)
-    let test2 = greet_strong(name, 5)
+    var test2 = greet_strong(name, 5)
     print(test2)
-    let test3 = add(4,4)
+    var test3 = add(4,4)
     print(test3)
     print(add(x=6, y=45))
