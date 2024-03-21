@@ -3,30 +3,107 @@ from algorithm import parallelize, vectorize
 from utils.index import Index
 from random import rand, randn
 from pathlib import path
+from math import logical_xor
 alias type = DType.float32
 
-fn main():
-    var img_height: Int = 25
-    var img_width: Int = 25
+fn conv():
+    var img_height: Int = 5
+    var img_width: Int = 5
     var kernel_size: Int = 3
+    var kernel_avg: Float32
 
     var img_spec = TensorSpec(type, img_height, img_width)
+    var img_conv_spec = TensorSpec(type, img_height - (kernel_size - 1), img_width - (kernel_size - 1))
     var kernel_spec = TensorSpec(type, kernel_size, kernel_size)
 
-    var img: Tensor[type] = randn[type](img_spec, 0, 1)
-    var img_conv: Tensor[type] = Tensor[type](img_spec)
+    var img: Tensor[type] = randn[type](img_spec, 1, 1)
+    var img_conv: Tensor[type] = Tensor[type](img_conv_spec)
 
     var kernel: Tensor[type] = Tensor[type](kernel_spec)
+    var kernal_acc: Tensor[type] = Tensor[type](kernel_spec)
+
     kernel[Index(0,0)] = 0.05
-    kernel[Index(0,1)] = 0.11
+    kernel[Index(0,1)] = 0.25
     kernel[Index(0,2)] = 0.05
-    kernel[Index(1,0)] = 0.11
-    kernel[Index(1,1)] = 0.25
-    kernel[Index(1,2)] = 0.11
+    kernel[Index(1,0)] = 0.25
+    kernel[Index(1,1)] = 1.00
+    kernel[Index(1,2)] = 0.25
     kernel[Index(2,0)] = 0.05
-    kernel[Index(2,1)] = 0.11
+    kernel[Index(2,1)] = 0.25
     kernel[Index(2,2)] = 0.05
 
+    var kernel_sum: Float32 = 0.0
+    for i in range(kernel.num_elements()):
+        kernel_sum += kernel[i]
+    
+    kernel_avg = kernel_sum / kernel.num_elements()
+
     print("convolutions")
+    print(kernel_avg)
     print(kernel)
     print(img)
+    print(img_conv.shape())
+
+    for i in range(1, img_height - 1):
+        for j in range(1, img_width - 1):
+            # accumulate over image 
+            var sum: Float32 = 0.0
+            for x in range(kernel_size):
+                for y in range(kernel_size):
+                    sum += kernel[Index(x, y)] * img[Index(i + (x - 1), j + (y - 1))] 
+            
+            img_conv[Index(i -1, j - 1)] = sum / kernel_avg
+
+    print(img_conv)
+
+fn print_env(borrowed env: Tensor[DType.bool]):
+    var display: String = ""
+    for i in range(env.num_elements()):
+        if env[i]:
+            display += "*"
+        else:
+            display += "_"
+    print(display)
+
+fn update_env(inout env: Tensor[DType.bool], borrowed env_new: Tensor[DType.bool]):
+    for i in range(env.num_elements()):
+        env[i] = env_new[i]
+
+fn elem_ca():
+    # rule 30
+    var width: Int = 50
+    var iters: Int = 10
+
+    var env_spec = TensorSpec(DType.bool, 1, width)
+    var env = Tensor[DType.bool](env_spec)
+    var env_new = Tensor[DType.bool](env_spec)
+
+    env[10] = True
+    env[35] = True
+
+    var left: Bool = False
+    var center: Bool = False
+    var right: Bool = False 
+    print_env(env)
+    
+    for _ in range(iters):
+        for i in range(width):
+            if i == 0:
+                left = False
+                center = env[i]
+                right = env[i + 1]
+            elif i == (width - 1):
+                left = env[i - 1]
+                center = env[i]
+                right = False
+            else:
+                left = env[i - 1]
+                center = env[i]
+                right = env[i + 1]
+
+            env_new[i] = logical_xor[1](left, (center | right))
+        update_env(env, env_new)
+        print_env(env)
+    
+fn main():
+    elem_ca()
